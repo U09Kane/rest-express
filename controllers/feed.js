@@ -1,39 +1,50 @@
-const { validationResult } = require('express-validator');
+const User = require('../models/User');
+const Post = require('../models/Post');
 
 
-const getPosts = (req, res) => {
-  res.status(200).json([
-    {
-      id: 1,
-      title: 'New Post',
-      content: 'the content of the post',
-      imageUrl: 'img/duck.jpg',
-      creator: 'Max',
-    },
-  ]);
+exports.getPosts = async (req, res) => {
+  /* Get a list of all Posts */
+  const { user } = req;
+  const posts = await user.getPosts();
+  res.status(200).json(posts);
 };
 
-const postPosts = (req, res) => {
-  const errors = validationResult(req);
-  const { title, content } = req.body;
-  if (!errors.isEmpty()) {
-    res.status(422).json({
-      msg: 'Validation Failed',
-      errors: errors.array(),
+
+exports.getPostById = async (req, res, next) => {
+  /* Get specific <Post> by id */
+  try {
+    const { postId } = req.params;
+    const post = await Post.findByPk(postId);
+    if (!post) {
+      const err = new Error({ message: 'Post not found!' });
+      err.statusCode = 404;
+      throw err;
+    } else {
+      res.status(200).json({ post });
+    }
+  } catch (err) { next(err); }
+};
+
+
+exports.postPost = async (req, res) => {
+  /* Create a new <Post> and save it to the DB */
+  const {
+    userID,
+    title,
+    content,
+    imageUrl,
+  } = req.body;
+
+  const user = await User.findByPk(userID);
+  if (!user) {
+    res.status(400).json({
+      msg: 'No such user exists',
     });
   }
-
-  const payload = {
-    msg: 'Post created successfully!',
-    post: {
-      id: new Date().toISOString(),
-      title,
-      content,
-    },
-  };
-
-  res.status(201).json(payload);
+  try {
+    const post = await user.createPost({ title, content, imageUrl });
+    res.status(201).json(post);
+  } catch (err) {
+    res.status(402).json({ msg: 'Something went wrong' });
+  }
 };
-
-exports.getPosts = getPosts;
-exports.postPosts = postPosts;
